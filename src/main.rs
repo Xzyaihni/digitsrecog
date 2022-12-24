@@ -96,7 +96,7 @@ fn train(filename: &str, digit_reader: Digiter, config: &Config)
         }).collect::<Vec<TrainSample>>();
 
     let seed = rand::random::<u32>();
-    let mut progress_counter = 0.0;
+    let mut progress_counter = 1.0;
 
     let random = xorshift(seed);
     let batch_begin = random as usize;
