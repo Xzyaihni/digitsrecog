@@ -179,7 +179,6 @@ impl DefaultLayer
     pub fn backpropagate(
         &mut self,
         inputs: &[f64],
-        previous_transfer: TransferFunction,
         errors: InnerOuter
     )
     {
@@ -214,7 +213,7 @@ impl DefaultLayer
                 unsafe
                 {
                 *current_batch.get_unchecked_mut(previous) +=
-                    deriv * previous_transfer.t_f(*inputs.get_unchecked(previous));
+                    deriv * *inputs.get_unchecked(previous);
                 }
             }
 

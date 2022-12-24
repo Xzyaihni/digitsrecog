@@ -129,15 +129,16 @@ impl NeuralNet
 
             let ptr = self.layers.as_mut_ptr();
 
-            let (previous_layer, tf) = if layer==0
+            let previous_layer = if layer==0
             {
-                (inputs, TransferFunction::Nothing)
+                inputs.to_vec()
             } else
             {
                 let prev_layer = unsafe{ ptr.add(layer-1) };
+                let tf = unsafe{ (*prev_layer).transfer_function() };
                 unsafe
                 {
-                ((*prev_layer).neurons(), (*prev_layer).transfer_function())
+                (*prev_layer).neurons().iter().map(|neuron| tf.t_f(*neuron)).collect::<Vec<f64>>()
                 }
             };
 
@@ -145,8 +146,7 @@ impl NeuralNet
             {
                 unsafe
                 {
-                    (*ptr.add(layer)).backpropagate(previous_layer,
-                        tf, InnerOuter::Outputs(outputs));
+                    (*ptr.add(layer)).backpropagate(&previous_layer, InnerOuter::Outputs(outputs));
                 }
             } else
             {
@@ -164,7 +164,7 @@ impl NeuralNet
 
                 unsafe
                 {
-                (*current_layer).backpropagate(previous_layer, tf, inners);
+                (*current_layer).backpropagate(&previous_layer, inners);
                 }
             }
         }
