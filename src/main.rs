@@ -1,4 +1,4 @@
-use std::{fmt, env, process, str};
+use std::{fmt, env, thread, process, str, num::NonZeroUsize};
 
 use digiter::*;
 use neural_net::*;
@@ -65,8 +65,8 @@ fn train(filename: &str, digit_reader: Digiter, config: &Config)
     let image_size = (digit_reader.width() * digit_reader.height()) as usize;
 
     let layers = [
-        DefaultLayerSettings{size: 30, transfer_function: TransferFunction::Sigmoid},
-        DefaultLayerSettings{size: 30, transfer_function: TransferFunction::Sigmoid},
+        DefaultLayerSettings{size: 50, transfer_function: TransferFunction::Tanh},
+        DefaultLayerSettings{size: 50, transfer_function: TransferFunction::Tanh},
         DefaultLayerSettings{size: 10, transfer_function: TransferFunction::Sigmoid}
         ];
 
@@ -75,7 +75,6 @@ fn train(filename: &str, digit_reader: Digiter, config: &Config)
         ProgramMode::Restart => NeuralNet::create(image_size, &layers),
         ProgramMode::Train => NeuralNet::load(filename).unwrap()
     };
-
 
     let iterations_progress = config.iterations/100;
     let mut progress = 1;
@@ -110,7 +109,7 @@ fn train(filename: &str, digit_reader: Digiter, config: &Config)
             digit_reader.get_unchecked((i+b+batch_begin)%digit_reader.len()).clone()
             }
         }).collect::<Vec<TrainSample>>();
-        network.backpropagate(&batch);
+        network.backpropagate_multithreaded(&batch, config.threads);
 
         if (i & progress_mask)==0
         {
@@ -182,6 +181,7 @@ struct Config
 {
     mode: ProgramMode,
     filename: String,
+    threads: usize,
     iterations: usize,
     batch_size: usize,
     train_images: String,
@@ -196,6 +196,8 @@ impl Config
     {
         let mut mode = ProgramMode::Restart;
         let mut filename = "network.nn".to_owned();
+
+        let mut threads = None;
 
         let mut iterations = 10;
         let mut batch_size = 10000;
@@ -223,6 +225,10 @@ impl Config
                 "-o" | "--output" =>
                 {
                     filename = args.next().ok_or(ConfigError::MissingValue)?;
+                },
+                "--threads" =>
+                {
+                    threads = Some(Self::number_arg::<usize>(&mut args)?);
                 },
                 "-I" | "--iter" =>
                 {
@@ -278,8 +284,14 @@ impl Config
             test_labels.unwrap()
         };
 
+        let threads = threads.unwrap_or_else(||
+        {
+            thread::available_parallelism().unwrap_or_else(|_| NonZeroUsize::new(1).unwrap()).get()
+        });
+
         Ok(Config{
             mode, filename,
+            threads,
             iterations, batch_size,
             train_images, train_labels,
             test_images, test_labels
@@ -302,6 +314,7 @@ impl Config
         println!("    -h, --help         display this help messsage");
         println!("    -M, --mode         program mode (default restart)");
         println!("    -o, --output       output filename (default network.nn)");
+        println!("    --threads          override the amount of threads used");
         println!("    -I, --iter         iterations to train for (default 10)");
         println!("    -b, --batch        batch size (default 10000)");
         println!("    -i, --images       mnist training images");

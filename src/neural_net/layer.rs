@@ -176,6 +176,21 @@ impl DefaultLayer
         }
     }
 
+    pub fn combine(&mut self, other: &DefaultLayer)
+    {
+        for i_neuron in 0..self.gradient_batch.len()
+        {
+            unsafe
+            {
+            for i_previous in 0..self.gradient_batch.get_unchecked(i_neuron).len()
+            {
+                *self.gradient_batch.get_unchecked_mut(i_neuron).get_unchecked_mut(i_previous) +=
+                    *other.gradient_batch.get_unchecked(i_neuron).get_unchecked(i_previous);
+            }
+            }
+        }
+    }
+
     pub fn backpropagate(
         &mut self,
         inputs: &[f64],

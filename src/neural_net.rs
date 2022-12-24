@@ -1,6 +1,7 @@
 use std::{
     fs::File,
-    io
+    io,
+    thread
 };
 
 pub use layer::*;
@@ -107,17 +108,70 @@ impl NeuralNet
         }
     }
 
+    pub fn backpropagate_multithreaded(&mut self, mut samples: &[TrainSample], threads: usize)
+    {
+        thread::scope(|scope|
+        {
+            let mut handles = Vec::new();
+
+            if samples.len()>=threads
+            {
+                let samples_per_thread = samples.len()/threads;
+
+                for _ in 0..threads-1
+                {
+                    let current_samples;
+                    (current_samples, samples) = samples.split_at(samples_per_thread);
+
+                    let mut network_copy = self.clone();
+
+                    handles.push(scope.spawn(move ||
+                    {
+                        network_copy.backpropagate_nonapply(current_samples);
+                        network_copy
+                    }));
+                }
+            }
+
+            self.backpropagate_nonapply(samples);
+
+            for handle in handles
+            {
+                self.combine(&handle.join().unwrap());
+            }
+        });
+
+        self.apply_gradients();
+    }
+
     pub fn backpropagate(&mut self, samples: &[TrainSample])
+    {
+        self.backpropagate_nonapply(samples);
+        self.apply_gradients();
+    }
+
+    fn backpropagate_nonapply(&mut self, samples: &[TrainSample])
     {
         for sample in samples
         {
             self.feedforward_inner(&sample.inputs);
             self.backpropagate_inner(&sample.inputs, &sample.outputs);
         }
+    }
 
+    fn apply_gradients(&mut self)
+    {
         self.layers.iter_mut().for_each(|layer|
         {
             layer.apply_gradients();
+        });
+    }
+
+    fn combine(&mut self, other: &NeuralNet)
+    {
+        self.layers.iter_mut().zip(other.layers.iter()).for_each(|(layer, other_layer)|
+        {
+            layer.combine(other_layer);
         });
     }
 
