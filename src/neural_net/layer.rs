@@ -223,14 +223,10 @@ impl DefaultLayer
 
             let current_batch = unsafe{ self.gradient_batch.get_unchecked_mut(i_neuron) };
 
-            for previous in 0..inputs.len()
+            inputs.iter().zip(current_batch.iter_mut()).for_each(|(input, gradient)|
             {
-                unsafe
-                {
-                *current_batch.get_unchecked_mut(previous) +=
-                    deriv * *inputs.get_unchecked(previous);
-                }
-            }
+                *gradient += deriv * *input;
+            });
 
             let last_gradient = current_batch.len()-1;
             //add bias gradient
