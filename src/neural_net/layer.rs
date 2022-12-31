@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use serde::{Serialize, Deserialize};
 use rand::Rng;
 
@@ -154,21 +156,26 @@ impl DefaultLayer
                 let current_sign = new_sign(*gradient);
 
                 let combination = current_sign * *previous_sign;
-                if combination>0
+                match combination.cmp(&0)
                 {
-                    *learning_rate = (*learning_rate * 1.2).min(0.01);
+                    Ordering::Greater =>
+                    {
+                        *learning_rate = (*learning_rate * 1.2).min(0.01);
 
-                    *weight -= *learning_rate * current_sign as f64;
-                    *previous_sign = current_sign;
-                } else if combination<0
-                {
-                    *learning_rate = (*learning_rate * 0.5).max(0.000001);
+                        *weight -= *learning_rate * current_sign as f64;
+                        *previous_sign = current_sign;
+                    },
+                    Ordering::Less =>
+                    {
+                        *learning_rate = (*learning_rate * 0.5).max(0.000001);
 
-                    *previous_sign = 0;
-                } else
-                {
-                    *weight -= *learning_rate * current_sign as f64;
-                    *previous_sign = current_sign;
+                        *previous_sign = 0;
+                    },
+                    Ordering::Equal =>
+                    {
+                        *weight -= *learning_rate * current_sign as f64;
+                        *previous_sign = current_sign;
+                    }
                 }
     
                 *gradient = 0.0;
